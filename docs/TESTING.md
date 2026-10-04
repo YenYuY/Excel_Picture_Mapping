@@ -8,7 +8,8 @@
 - Excel 往返包含：文字前導零、B2/B3/B4 圖片、缺號時 C2/C4 配對、原有 B 圖片、公式、格式、合併範圍、其他工作表、重試不累積、取消不更動來源、已佔用目標與不支援檔案。
 - `pnpm run test:browser`：Microsoft Edge 真實下載 A.xlsx，再透過檔案選取載入、補圖並下載 B.xlsx；重新讀取下載內容驗證圖片數及位置。檢查沒有外部 HTTP 請求，並測試重複、損壞檔、預覽失效與 320 px 不橫向溢出。
 - `pnpm run build`：TypeScript 檢查及 Vite 正式建置。
-- `pnpm run test:pages`：將正式 `dist/` 掛在 `/photo-tool/` 子路徑，檢查靜態資源載入與真實 Excel 下載，模擬 GitHub repository 網址。
+- `pnpm run test:pages`：將正式 `dist/` 掛在 `/photo-tool/` 子路徑，檢查正式 CSS、桌面／手機排版、A 與 B 的 Excel 下載、既有圖片保留、缺號不錯列與重複補圖阻擋。此檢查也在 GitHub Actions 部署前執行（CI 使用 Chromium）。
+- `pnpm run test:pages https://yenyuy.github.io/Excel_Picture_Mapping/`：對正式網站執行相同功能檢查，僅使用程式生成的範例圖片，檔案在瀏覽器處理及本機下載，不上傳到網站。
 
 瀏覽器測試需有 Microsoft Edge，使用本機 3000 埠，輸出檔案與截圖位於 `artifacts/`，不提交 Git。測試素材 `tests/fixtures/sample.jpg` 是程式生成的 001 色塊，非個人照片，可隨原始碼提交。可用 `node scripts/generate-test-fixture.mjs` 重建。
 

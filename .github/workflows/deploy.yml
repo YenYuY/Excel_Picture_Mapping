@@ -23,6 +23,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm run build
+      - name: Install browser for production checks
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify CSS and Excel exports under a repository subpath
+        run: pnpm run test:pages
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
