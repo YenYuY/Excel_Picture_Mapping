@@ -22,8 +22,8 @@
         <section class="card">
           <h2><span class="step">1</span>選取照片</h2>
           <p id="photo-hint" class="muted">支援 GIF 以外的圖片格式，包含 JIFF / JFIF。建立新 Excel 不限檔名，依瀏覽器提供的檔案順序匯入。</p>
-          <div class="file-actions"><button id="folder-button" class="button secondary" type="button">讀取本機資料夾</button><label class="button quiet" for="files-input">多選照片</label></div>
-          <input class="file-input" type="file" id="files-input" multiple accept="image/*,.jiff,.jfif" />
+          <div class="file-actions"><button id="folder-button" class="button secondary" type="button">讀取本機資料夾</button><button id="files-button" class="button secondary" type="button">多選照片</button></div>
+          <input type="file" id="files-input" multiple accept="image/*,.jiff,.jfif" hidden />
           <p class="hint">只讀取你選取的本機檔案，在此頁記憶體處理，不存放於網站伺服器。</p>
           <p id="selection" class="selection">尚未選取照片</p>
           <button id="sample" class="text-button" type="button">試用範例照片</button>

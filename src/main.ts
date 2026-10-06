@@ -206,6 +206,9 @@ filesInput.accept = IMAGE_FILE_ACCEPT;
 filesInput.onchange=event=>{
   const selected=event.target as HTMLInputElement;selectFiles(Array.from(selected.files??[]));selected.value='';
 };
+el('files-button').onclick=()=>{
+  if (!busy) filesInput.click();
+};
 el('folder-button').onclick=async()=>{
   if (busy) return;
   const picker = getDirectoryPicker();
