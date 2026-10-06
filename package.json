@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "preview": "vite preview --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run tests/planner.test.ts tests/workbook.test.ts",
+    "test": "vitest run tests/planner.test.ts tests/workbook.test.ts tests/local-files.test.ts",
     "test:browser": "playwright test",
     "test:pages": "node scripts/check-pages.mjs",
     "package:pages": "node scripts/package-pages.mjs",
@@ -21,6 +21,7 @@
     "vitest": "^3.2.0"
   },
   "dependencies": {
+    "@imagemagick/magick-wasm": "0.0.44",
     "exceljs": "4.4.0",
     "jszip": "3.10.1"
   }

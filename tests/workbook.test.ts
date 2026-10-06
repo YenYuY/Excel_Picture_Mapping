@@ -6,17 +6,18 @@ import { exportWorkbook, inspectWorksheet, loadWorkbook, type ExportOptions } fr
 import { makePlan, readyEntries } from '../src/planner';
 
 const jpeg=readFileSync(new URL('./fixtures/sample.jpg',import.meta.url));
-function photos(names=['010.jpg','002.jpg','001.jpg']) {return names.map(name=>new File([jpeg],name,{type:'image/jpeg'}));}
+function photos(names=['010.jpg','現場照片.jiff','001.jpg']) {return names.map(name=>new File([jpeg],name,{type:'image/jpeg'}));}
 function request(files=photos()): ExportOptions {
   return {entries:readyEntries(makePlan(files,'a')),images:new Map(files.map(file=>[file,{base64:jpeg.toString('base64'),width:120,height:80}])),sheetName:'現場照片',rowHeight:150,columnWidth:210,cancelled:()=>false,onProgress:()=>{}};
 }
 async function bytesOf(workbook:ExcelJS.Workbook) {return new Uint8Array(await workbook.xlsx.writeBuffer()).slice().buffer;}
 
 describe('real XLSX round trips',()=>{
-  it('creates a real workbook with zero-padded IDs, dimensions and three embedded JPEGs',async()=>{
+  it('creates a real workbook with generated sequential IDs, dimensions and three embedded JPEGs',async()=>{
     const bytes=await exportWorkbook(request());
     const source=await loadWorkbook(bytes,'新表.xlsx');const sheet=source.workbook.worksheets[0];
-    expect(['A2','A3','A4'].map(a=>sheet.getCell(a).value)).toEqual(['001','002','010']);
+    expect(sheet.getCell('A1').value).toBe('序號');
+    expect(['A2','A3','A4'].map(a=>sheet.getCell(a).value)).toEqual(['1','2','3']);
     expect(sheet.getCell('A2').numFmt).toBe('@');expect(sheet.getRow(2).height).toBe(150);
     expect(sheet.getImages()).toHaveLength(3);
     expect(sheet.getImages().map(i=>[i.range.tl.nativeCol,i.range.tl.nativeRow])).toEqual([[1,1],[1,2],[1,3]]);
@@ -32,7 +33,7 @@ describe('real XLSX round trips',()=>{
     sheet.mergeCells('E1:F1');sheet.getCell('E1').value='保留標題';
     a.workbook.addWorksheet('其他資料').getCell('B7').value='不要變更';
     const original=await bytesOf(a.workbook);const copy=new Uint8Array(original).slice();
-    const source=await loadWorkbook(original,'A.xlsx');const b=photos(['001.jpg','010.jpg','099.jpg']);
+    const source=await loadWorkbook(original,'A.xlsx');const b=photos(['001.jpg','003.jpg','099.jpg']);
     const options=request(b);options.source=source;options.sheetId=sheet.id;
     options.entries=readyEntries(makePlan(b,'b',inspectWorksheet(source.workbook.worksheets[0])));
     expect(options.entries.map(entry=>entry.address)).toEqual(['C2','C4']);

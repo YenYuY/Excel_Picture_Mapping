@@ -1,8 +1,10 @@
 import './styles.css';
 import './web.css';
-import { makePlan, readyEntries, validateSheetName, MAX_FILES, type Mode, type Plan } from './planner';
+import { makePlan, readyEntries, validateSheetName, MAX_FILES, MAX_FILE_BYTES, type Mode, type Plan } from './planner';
 import { loadWorkbook, inspectWorksheet, exportWorkbook, MAX_WORKBOOK_BYTES, XLSX_TYPE, type WorkbookSource } from './workbook';
 import { prepareImage, sampleFiles, type PreparedImage } from './images';
+import { IMAGE_FILE_ACCEPT, isImageFile } from './image-formats';
+import { getDirectoryPicker, collectDirectoryFiles } from './local-files';
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T { return document.getElementById(id) as T; }
 let mode: Mode = 'a';
@@ -15,14 +17,12 @@ let cancelled = false;
 let revision = 0;
 let previewName = '';
 let downloadUrl = '';
-const previewUrls: string[] = [];
 
 function message(text: string, error = false): void {
   el('message').textContent = text; el('message').hidden = !text; el('message').classList.toggle('error', error);
 }
 function invalidate(): void {
   revision++; plan = undefined;
-  previewUrls.splice(0).forEach(url => URL.revokeObjectURL(url));
   el('preview-panel').hidden = true; el('progress-panel').hidden = true;
   el<HTMLButtonElement>('import').disabled = true;
   message('');
@@ -44,6 +44,9 @@ function chooseMode(next: Mode): void {
     el(`mode-${key}`).setAttribute('aria-pressed', String(key === mode));
     el(`${key}-settings`).hidden = key !== mode;
   }
+  el('photo-hint').textContent = mode === 'a'
+    ? '支援 GIF 以外的圖片格式，包含 JIFF / JFIF。建立新 Excel 不限檔名，依瀏覽器提供的檔案順序匯入。'
+    : '支援 GIF 以外的圖片格式，包含 JIFF / JFIF。補圖時檔名須以編號開頭，例如 001.jiff、002_現場.png。';
   selectFiles([]);
 }
 function selectFiles(selected: File[]): void {
@@ -75,24 +78,46 @@ async function selectWorkbook(read: () => Promise<ArrayBuffer>, name: string): P
   } finally { setBusy(false); }
 }
 
+async function renderThumbnails(thumbnails: { file: File; img: HTMLImageElement }[], current: number): Promise<void> {
+  for (const { file, img } of thumbnails) {
+    if (current !== revision || busy) return;
+    try {
+      const prepared = await prepareImage(file, 160);
+      if (current !== revision || busy || !img.isConnected) return;
+      img.src = `data:image/jpeg;base64,${prepared.base64}`;
+      img.hidden = false;
+    } catch {
+      // Invalid images are reported when importing; the preview can still show their filenames.
+      if (current !== revision || busy) return;
+      img.hidden = true;
+    }
+  }
+}
+
 function renderPreview(): void {
   if (!plan) return;
+  const current = revision;
+  const thumbnails: { file: File; img: HTMLImageElement }[] = [];
   const ready = readyEntries(plan).length;
   el('ready-count').textContent = `${ready} 張可匯入`;
   const sheet = source?.workbook.getWorksheet(Number(el<HTMLSelectElement>('target-sheet').value));
-  el('destination').textContent = mode === 'a' ? `建立新 Excel「${previewName}」· A 欄編號 / B 欄照片` : `${source?.name} →「${sheet?.name}」C 欄 · 另存新檔`;
+  el('destination').textContent = mode === 'a' ? `建立新 Excel「${previewName}」· A 欄序號 / B 欄照片` : `${source?.name} →「${sheet?.name}」C 欄 · 另存新檔`;
+  el('photo-heading').textContent = mode === 'a' ? '照片 / 序號' : '照片 / 編號';
   el('summary').textContent = plan.errors.length ? plan.errors.join('\n') : `可匯入 ${ready} 張，略過 ${plan.entries.length - ready} 個檔案。確認後產生可下載的 Excel。`;
   el('summary').classList.toggle('skip', plan.errors.length > 0);
   const rows = plan.entries.slice(0, 500).map((entry, index) => {
     const tr = document.createElement('tr');
     const name = document.createElement('td'); const wrapper = document.createElement('div'); wrapper.className = 'photo-cell';
-    if (entry.file && /\.(png|jpe?g)$/i.test(entry.name) && entry.file.size <= 40 * 1024 * 1024 && index < 50) {
+    if (entry.file && isImageFile(entry.file) && entry.file.size > 0 && entry.file.size <= MAX_FILE_BYTES && index < 50) {
       const img = document.createElement('img'); img.className = 'thumb'; img.alt = ''; img.loading = 'lazy';
-      img.src = URL.createObjectURL(entry.file); previewUrls.push(img.src);
+      img.hidden = true;
       img.onerror = () => { img.hidden = true; }; wrapper.append(img);
+      thumbnails.push({ file: entry.file, img });
     }
     const text = document.createElement('span'); const filename = document.createElement('span'); filename.className = 'filename'; filename.textContent = entry.name;
-    const id = document.createElement('span'); id.className = 'photo-id'; id.textContent = entry.label ? `編號 ${entry.label}` : '無編號';
+    const id = document.createElement('span'); id.className = 'photo-id';
+    const label = mode === 'a' ? '序號' : '編號';
+    id.textContent = entry.label ? `${label} ${entry.label}` : `無${label}`;
     text.append(filename, id); wrapper.append(text); name.append(wrapper);
     const address = document.createElement('td'); address.textContent = entry.address ?? '—';
     const status = document.createElement('td'); status.textContent = entry.reason ?? '可匯入'; status.className = entry.reason ? 'skip' : 'ready';
@@ -102,6 +127,7 @@ function renderPreview(): void {
   el('preview-limit').textContent = plan.entries.length > 50 ? '縮圖僅顯示前 50 個檔案；配對清單包含全部選取檔案。' : '';
   el<HTMLButtonElement>('import').textContent = `產生並下載 Excel · ${ready} 張`;
   el('preview-panel').hidden = false;
+  void renderThumbnails(thumbnails, current);
 }
 
 function dimensions(): { rowHeight: number; columnWidth: number } {
@@ -141,7 +167,7 @@ function offerDownload(bytes: ArrayBuffer, name: string): void {
 async function runImport(): Promise<void> {
   if (busy || !plan || plan.errors.length) return;
   const entries = readyEntries(plan); if (!entries.length) return;
-  setBusy(true); cancelled = false; message('');
+  revision++; setBusy(true); cancelled = false; message('');
   el('progress-panel').hidden = false; el<HTMLButtonElement>('cancel').disabled = false;
   const progress = el<HTMLProgressElement>('progress'); progress.value = 0;
   const images = new Map<File, PreparedImage>();
@@ -175,8 +201,33 @@ async function runImport(): Promise<void> {
 
 el('mode-a').onclick = () => chooseMode('a');
 el('mode-b').onclick = () => chooseMode('b');
-for (const id of ['folder-input','files-input']) el<HTMLInputElement>(id).onchange=event=>{
-  const input=event.target as HTMLInputElement;selectFiles(Array.from(input.files??[]));input.value='';
+const filesInput = el<HTMLInputElement>('files-input');
+filesInput.accept = IMAGE_FILE_ACCEPT;
+filesInput.onchange=event=>{
+  const selected=event.target as HTMLInputElement;selectFiles(Array.from(selected.files??[]));selected.value='';
+};
+el('folder-button').onclick=async()=>{
+  if (busy) return;
+  const picker = getDirectoryPicker();
+  if (!picker) {
+    message('此瀏覽器不支援直接讀取資料夾，請使用多選照片；檔案只在本機處理。');
+    filesInput.click();
+    return;
+  }
+  const previousSelection = el('selection').textContent;
+  setBusy(true);
+  el('selection').textContent = '正在本機讀取資料夾…';
+  try {
+    const directory = await picker({ mode: 'read' });
+    const selected = await collectDirectoryFiles(directory);
+    setBusy(false);
+    selectFiles(selected);
+  } catch (error) {
+    el('selection').textContent = previousSelection;
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+      message(`無法讀取本機資料夾：${errorText(error)}`, true);
+    }
+  } finally { setBusy(false); }
 };
 el<HTMLInputElement>('workbook-input').onchange=async event=>{
   const input=event.target as HTMLInputElement,file=input.files?.[0];input.value='';

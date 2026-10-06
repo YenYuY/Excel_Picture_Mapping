@@ -1,3 +1,5 @@
+import { isGif, isImageFile } from './image-formats';
+
 export type Mode = 'a' | 'b';
 export interface Photo { file: File; name: string; label: string; key: string }
 export interface Entry { name: string; label: string; key: string; file?: File; row?: number; address?: string; reason?: string }
@@ -23,25 +25,29 @@ export function makePlan(files: File[], mode: Mode, rows: ExistingRow[] = []): P
   if (files.length > MAX_FILES) errors.push(`單次最多 ${MAX_FILES} 個檔案，請分批選取。`);
   const counts = new Map<string, number>();
   for (const file of files) {
-    const label = file.name.match(/^(\d+)/)?.[1] ?? '';
+    const label = mode === 'b' ? file.name.match(/^(\d+)/)?.[1] ?? '' : '';
     const key = normalizeId(label) ?? '';
     let reason: string | undefined;
-    if (!/\.(jpe?g|png)$/i.test(file.name)) reason = '不支援的格式';
-    else if (!label) reason = '檔名未以數字開頭';
+    if (isGif(file)) reason = '不支援 GIF 格式';
+    else if (!isImageFile(file)) reason = '不支援的格式';
+    else if (mode === 'b' && !label) reason = '檔名未以數字開頭';
     else if (file.size === 0) reason = '空白檔案';
     else if (file.size > MAX_FILE_BYTES) reason = '檔案超過 40 MB';
     entries.push({ name: file.webkitRelativePath || file.name, label, key, file, reason });
-    if (!reason) counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (mode === 'b' && !reason) counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  entries.sort((a, b) => compareIds(a.key, b.key) || a.name.localeCompare(b.name, 'zh-Hant', { numeric: true }));
-  for (const entry of entries) {
-    if (!entry.reason && counts.get(entry.key)! > 1) entry.reason = '照片編號重複';
-  }
-  if ([...counts.values()].some(count => count > 1)) errors.push('照片有重複編號（001 與 1 視為相同），請排除後重新選取。');
   if (mode === 'a') {
     let row = 2;
-    for (const entry of entries) if (!entry.reason) { entry.row = row++; entry.address = `B${entry.row}`; }
+    for (const entry of entries) if (!entry.reason) {
+      entry.label = String(row - 1); entry.key = entry.label;
+      entry.row = row++; entry.address = `B${entry.row}`;
+    }
   } else {
+    entries.sort((a, b) => compareIds(a.key, b.key) || a.name.localeCompare(b.name, 'zh-Hant', { numeric: true }));
+    for (const entry of entries) {
+      if (!entry.reason && counts.get(entry.key)! > 1) entry.reason = '照片編號重複';
+    }
+    if ([...counts.values()].some(count => count > 1)) errors.push('照片有重複編號（001 與 1 視為相同），請排除後重新選取。');
     const byId = new Map<string, ExistingRow[]>();
     for (const row of rows) {
       const key = normalizeId(row.id);

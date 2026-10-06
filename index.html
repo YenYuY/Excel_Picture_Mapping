@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#17694b" />
-    <meta name="description" content="在瀏覽器依編號整理照片、建立 Excel，或讀取既有 Excel 補入對照照片。檔案全程在本機處理。" />
+    <meta name="description" content="在瀏覽器依檔案順序整理照片、建立 Excel，或讀取既有 Excel 補入對照照片。檔案全程在本機處理。" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <title>照片批次匯入 · Excel 網頁工具</title>
   </head>
   <body>
     <main class="app">
       <header><span class="brand-mark" aria-hidden="true">▦</span><div><p class="eyebrow">EXCEL PHOTO IMPORT</p><h1>照片批次匯入</h1></div><span class="version">網頁版 1.0</span></header>
-      <div id="connection" class="notice" role="status">純本機處理 · 不上傳照片或 Excel · 無需安裝</div>
-      <p class="intro">選照片、對編號，下載整理好的 Excel。</p>
+      <div id="connection" class="notice" role="status">純本機處理 · 照片與 Excel 只在你的瀏覽器處理，不會上傳到伺服器</div>
+      <p class="intro">選照片，下載整理好的 Excel。</p>
       <fieldset id="controls">
         <legend class="sr-only">匯入設定</legend>
         <div class="mode-picker" role="group" aria-label="匯入模式">
@@ -21,10 +21,10 @@
         </div>
         <section class="card">
           <h2><span class="step">1</span>選取照片</h2>
-          <p class="muted">支援 JPG、PNG。檔名以編號開頭，例如 001.jpg、002_現場.png。</p>
-          <div class="file-actions"><label class="button secondary" for="folder-input">選擇資料夾</label><label class="button quiet" for="files-input">多選照片</label></div>
-          <input class="file-input" type="file" id="folder-input" webkitdirectory multiple accept="image/jpeg,image/png" />
-          <input class="file-input" type="file" id="files-input" multiple accept="image/jpeg,image/png" />
+          <p id="photo-hint" class="muted">支援 GIF 以外的圖片格式，包含 JIFF / JFIF。建立新 Excel 不限檔名，依瀏覽器提供的檔案順序匯入。</p>
+          <div class="file-actions"><button id="folder-button" class="button secondary" type="button">讀取本機資料夾</button><label class="button quiet" for="files-input">多選照片</label></div>
+          <input class="file-input" type="file" id="files-input" multiple accept="image/*,.jiff,.jfif" />
+          <p class="hint">只讀取你選取的本機檔案，在此頁記憶體處理，不存放於網站伺服器。</p>
           <p id="selection" class="selection">尚未選取照片</p>
           <button id="sample" class="text-button" type="button">試用範例照片</button>
         </section>
@@ -33,7 +33,7 @@
           <div id="a-settings">
             <label for="sheet-name">新工作表名稱</label><input id="sheet-name" maxlength="31" placeholder="留白時自動命名" />
             <div class="two-col"><div><label for="row-height">列高（點）</label><input id="row-height" type="number" min="48" max="400" value="150" /></div><div><label for="column-width">圖片欄寬（點）</label><input id="column-width" type="number" min="48" max="500" value="210" /></div></div>
-            <p class="hint">建立新的 .xlsx，從 B2 依序插圖；A 欄保留文字編號。C 欄預留給之後的對照照片。</p>
+            <p class="hint">建立新的 .xlsx，從 B2 依檔案順序插圖；A 欄自動產生 1、2、3… 序號。C 欄預留給之後的對照照片。</p>
           </div>
           <div id="b-settings" hidden>
             <label for="workbook-input">選擇既有 Excel（.xlsx，最多 50 MB）</label>
@@ -45,21 +45,21 @@
             <p class="compatibility">適用一般表格與照片；圖表、巨集、樞紐分析等複雜報表不支援。下載後請檢查格式，原始檔不會被覆寫。</p>
           </div>
         </section>
-        <button id="preview" class="button primary wide" type="button" disabled>預覽排序與配對 <span aria-hidden="true">→</span></button>
+        <button id="preview" class="button primary wide" type="button" disabled>預覽順序與配對 <span aria-hidden="true">→</span></button>
       </fieldset>
       <section id="preview-panel" class="card preview" hidden aria-labelledby="preview-title">
         <div class="section-heading"><h2 id="preview-title">匯入預覽</h2><span id="ready-count" class="badge"></span></div>
         <p id="destination" class="muted"></p>
         <p id="summary"></p>
-        <div class="table-wrap"><table><thead><tr><th>照片 / 編號</th><th>位置</th><th>狀態</th></tr></thead><tbody id="preview-body"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th id="photo-heading">照片 / 序號</th><th>位置</th><th>狀態</th></tr></thead><tbody id="preview-body"></tbody></table></div>
         <p id="preview-limit" class="hint"></p>
         <p class="hint">照片等比例縮放為浮動圖片，長邊最多 1280 像素。確認後直接下載 .xlsx。</p>
         <button id="import" type="button" class="button primary wide" disabled>產生並下載 Excel</button>
       </section>
       <section id="progress-panel" class="card" hidden><label for="progress">處理進度</label><progress id="progress" max="100" value="0"></progress><p id="progress-text" role="status"></p><button id="cancel" class="button quiet" type="button">取消產生</button></section>
       <p id="message" role="status" aria-live="polite" hidden></p>
-      <section id="download-panel" class="card result" hidden><h2>最近產生的檔案</h2><a id="download" class="button primary wide">下載 Excel</a><p class="hint">檔案只保留於目前頁面；重新整理前請先下載。</p></section>
-      <footer>照片與 Excel 都在你的瀏覽器處理，不傳送到伺服器。<br />每批最多 500 個檔案 · 支援 JPG / PNG · 下載 .xlsx 後可用 Excel 開啟</footer>
+      <section id="download-panel" class="card result" hidden><h2>最近產生的檔案</h2><a id="download" class="button primary wide">下載 Excel</a><p class="hint">匯出資料暫存於此頁記憶體；重新整理前請先下載。已下載的 Excel 保留在你的裝置。</p></section>
+      <footer>照片與 Excel 僅在你的瀏覽器記憶體處理，不上傳或存放於網站伺服器。重新整理會清除此頁暫存。<br />每批最多 500 個檔案 · 支援圖片（GIF 除外，含 JIFF / JFIF）· 下載 .xlsx 後可用 Excel 開啟</footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

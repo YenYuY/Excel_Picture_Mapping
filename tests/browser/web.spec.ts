@@ -12,7 +12,7 @@ test('downloads actual A/B workbooks and preserves original photos without exter
   const aDownload=page.waitForEvent('download');await page.locator('#import').click();const a=await aDownload;
   const aPath=testInfo.outputPath('A.xlsx');await a.saveAs(aPath);
   const aBook=new ExcelJS.Workbook();await aBook.xlsx.readFile(aPath);
-  expect(aBook.worksheets[0].getCell('A2').value).toBe('001');expect(aBook.worksheets[0].getImages()).toHaveLength(3);
+  expect([2,3,4].map(row=>aBook.worksheets[0].getCell(row,1).value)).toEqual(['1','2','3']);expect(aBook.worksheets[0].getImages()).toHaveLength(3);
   await page.locator('#mode-b').click();await page.locator('#workbook-input').setInputFiles(aPath);
   await expect(page.locator('#workbook-status')).toContainText('A.xlsx');
   await page.locator('#sample').click();await page.locator('#preview').click();
@@ -33,14 +33,28 @@ test('downloads actual A/B workbooks and preserves original photos without exter
   await page.setViewportSize({width:320,height:700});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('blocks duplicates and corrupt images, invalidates preview and rejects bad workbooks',async({page})=>{
+test('accepts arbitrary names and duplicate prefixes in A, rejects corrupt images, and keeps B matching validation',async({page})=>{
   await page.goto('/');
-  await page.locator('#files-input').setInputFiles([{name:'001.jpg',mimeType:'image/jpeg',buffer:Buffer.from('broken')},{name:'1.png',mimeType:'image/png',buffer:Buffer.from('broken')}]);
-  await page.locator('#preview').click();await expect(page.locator('#summary')).toContainText('重複編號');await expect(page.locator('#import')).toBeDisabled();
-  await page.locator('#files-input').setInputFiles([{name:'002.jpg',mimeType:'image/jpeg',buffer:Buffer.from('broken')}]);
+  await page.locator('#files-input').setInputFiles([{name:'001.jpg',mimeType:'image/jpeg',buffer:Buffer.from('broken')},{name:'1.png',mimeType:'image/png',buffer:Buffer.from('broken')},{name:'任意照片.jpg',mimeType:'image/jpeg',buffer:Buffer.from('broken')}]);
+  await page.locator('#preview').click();await expect(page.locator('#ready-count')).toHaveText('3 張可匯入');await expect(page.locator('#summary')).not.toContainText('重複編號');await expect(page.locator('#import')).toBeEnabled();
+  await expect(page.locator('#preview-body .filename')).toHaveText(['001.jpg','1.png','任意照片.jpg']);
+  await page.locator('#files-input').setInputFiles([{name:'損壞的照片.jpg',mimeType:'image/jpeg',buffer:Buffer.from('broken')}]);
   await page.locator('#preview').click();await page.locator('#sheet-name').fill('新照片');await expect(page.locator('#preview-panel')).toBeHidden();
   await page.locator('#preview').click();await page.locator('#import').click();await expect(page.locator('#message')).toContainText('無法讀取');await expect(page.locator('#download-panel')).toBeHidden();
   await page.locator('#mode-b').click();await page.locator('#sample').click();await expect(page.locator('#preview')).toBeDisabled();
   await page.locator('#workbook-input').setInputFiles([{name:'bad.xlsx',mimeType:'application/octet-stream',buffer:Buffer.from('broken')}]);
   await expect(page.locator('#message')).toContainText('有效的');await expect(page.locator('#preview')).toBeDisabled();
+
+  const source=new ExcelJS.Workbook(),sheet=source.addWorksheet('來源');
+  sheet.addRow(['編號','','對照照片']);sheet.addRow(['001']);sheet.addRow(['002']);
+  sheet.getColumn(3).width=30;sheet.getRow(2).height=150;sheet.getRow(3).height=150;
+  await page.locator('#workbook-input').setInputFiles({name:'source.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(await source.xlsx.writeBuffer())});
+  await expect(page.locator('#workbook-status')).toContainText('source.xlsx');
+  const image=await readFile(new URL('../fixtures/sample.jpg',import.meta.url));
+  await page.locator('#files-input').setInputFiles([{name:'001.jpg',mimeType:'image/jpeg',buffer:image},{name:'1.jpg',mimeType:'image/jpeg',buffer:image}]);
+  await page.locator('#preview').click();await expect(page.locator('#summary')).toContainText('重複編號');await expect(page.locator('#import')).toBeDisabled();
+  await page.locator('#files-input').setInputFiles([{name:'任意照片.jpg',mimeType:'image/jpeg',buffer:image},{name:'002.jpg',mimeType:'image/jpeg',buffer:image}]);
+  await page.locator('#preview').click();await expect(page.locator('#ready-count')).toHaveText('1 張可匯入');
+  await expect(page.locator('#preview-body td.skip')).toHaveText('檔名未以數字開頭');
+  await expect(page.locator('#preview-body tr').last()).toContainText('C3');
 });

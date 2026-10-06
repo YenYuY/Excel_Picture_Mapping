@@ -13,3 +13,5 @@ artifacts/
 *.pem
 *.pfx
 ~$*
+/test-results/
+/playwright-report/

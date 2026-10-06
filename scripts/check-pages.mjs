@@ -12,7 +12,7 @@ const server=createServer(async(req,res)=>{
     const relative=decodeURIComponent(url.pathname.slice('/photo-tool/'.length))||'index.html';
     const file=resolve(root,relative);
     if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
-    const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml'};
+    const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.wasm':'application/wasm'};
     res.setHeader('Content-Type',mime[extname(file)]||'application/octet-stream');
     res.end(await readFile(file));
   } catch {res.writeHead(404).end();}
@@ -42,7 +42,7 @@ try {
   const pending=page.waitForEvent('download');await page.locator('#import').click();const download=await pending;
   const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(await download.path());
   assert.equal(workbook.worksheets[0].getImages().length,3);
-  assert.deepEqual(['A2','A3','A4'].map(address=>workbook.worksheets[0].getCell(address).value),['001','002','010']);
+  assert.deepEqual(['A2','A3','A4'].map(address=>workbook.worksheets[0].getCell(address).value),['1','2','3']);
   const original=await readFile(await download.path());
   await page.locator('#mode-b').click();
   await page.locator('#workbook-input').setInputFiles({name:'source.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:original});
@@ -58,9 +58,21 @@ try {
   await page.locator('#use-last').click();await expect(page.locator('#workbook-status')).toContainText('_補圖.xlsx');
   await page.locator('#preview').click();await expect(page.locator('#ready-count')).toHaveText('0 張可匯入');
   await expect(page.locator('#import')).toBeDisabled();
+  // Exercise the lazy decoder in the built site, including its WASM asset at a Pages subpath.
+  await page.locator('#mode-a').click();
+  await page.locator('#files-input').setInputFiles({name:'001.tiff',mimeType:'image/tiff',buffer:await readFile(new URL('../tests/fixtures/sample.tiff',import.meta.url))});
+  await page.locator('#preview').click();
+  await expect(page.locator('#ready-count')).toHaveText('1 張可匯入');
+  const thumb=page.locator('#preview-body img.thumb');
+  await expect(thumb).toBeVisible({timeout:30000});
+  await expect(thumb).toHaveJSProperty('naturalWidth',120);
+  const pendingTiff=page.waitForEvent('download');await page.locator('#import').click();const tiffDownload=await pendingTiff;
+  const converted=new ExcelJS.Workbook();await converted.xlsx.readFile(await tiffDownload.path());
+  assert.equal(converted.worksheets[0].getImages().length,1);
+  assert.equal(converted.getImage(Number(converted.worksheets[0].getImages()[0].imageId)).extension,'jpeg');
   await page.setViewportSize({width:320,height:700});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mobile layout overflows.');
   await page.screenshot({path:'artifacts/pages-mobile.png',fullPage:true});
   assert.deepEqual(errors,[]);
-  console.log(`PASS: CSS, responsive layout, A/B Excel downloads, image preservation and duplicate prevention at ${target}`);
+  console.log(`PASS: CSS, responsive layout, A/B Excel downloads, image preservation, duplicate prevention and TIFF/WASM conversion at ${target}`);
 } finally {await browser.close();if(!liveUrl)await new Promise(resolve=>server.close(resolve));}

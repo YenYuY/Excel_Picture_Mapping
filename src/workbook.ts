@@ -154,7 +154,7 @@ export async function exportWorkbook(options: ExportOptions): Promise<ArrayBuffe
     if (options.rowHeight < 48 || options.rowHeight > 400 || options.columnWidth < 48 || options.columnWidth > 500) throw new Error('列高或欄寬超出範圍。');
     workbook.creator = '照片批次匯入'; workbook.created = new Date();
     sheet = workbook.addWorksheet(options.sheetName);
-    sheet.columns = [{header:'編號',key:'id',width:12},{header:'A 資料夾照片',width:(options.columnWidth*96/72-5)/7},{header:'B 資料夾照片',width:(options.columnWidth*96/72-5)/7}];
+    sheet.columns = [{header:'序號',key:'id',width:12},{header:'A 資料夾照片',width:(options.columnWidth*96/72-5)/7},{header:'B 資料夾照片',width:(options.columnWidth*96/72-5)/7}];
     sheet.getRow(1).height = 26;
     sheet.getRow(1).eachCell(cell => {cell.font={name:'Calibri',bold:true,color:{argb:'FFFFFFFF'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF17694B'}};cell.alignment={vertical:'middle'};});
     sheet.views=[{state:'frozen',ySplit:1}];
