@@ -20,7 +20,7 @@ B 模式仍以檔名開頭數字配對；不同子資料夾出現相同編號時
 
 本專案附有 `.github/workflows/deploy.yml`。推送到 `main` 或 `master` 時會自動安裝套件、執行單元測試、建置網站，再以 Chromium 驗證正式網站的 CSS、圖片轉換與 Excel 匯出；通過後才部署到 GitHub Pages。也可在 **Actions → Deploy website to GitHub Pages → Run workflow** 手動執行。
 
-1. 將完整原始碼提交到 GitHub，包含 `.github/`、`public/`、`src/`、`tests/`、`scripts/` 與 `pnpm-lock.yaml`。`node_modules/`、`dist/`、測試輸出和本機資料由 `.gitignore` 排除。
+1. 將完整專案提交到 GitHub，包含 `.github/`、`public/`、`src/`、`tests/`、`scripts/` 與 `pnpm-lock.yaml`。專案另附 `artifacts/github-pages.zip` 供直接下載部署；`node_modules/`、`dist/`、測試輸出和本機資料由 `.gitignore` 排除。
 2. Repository → **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。此 repository 已使用這個設定。
 3. 推送後，在 Actions 確認測試與部署結果，完成後開啟 [網站](https://yenyuy.github.io/Excel_Picture_Mapping/)。
 

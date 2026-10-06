@@ -57,7 +57,7 @@ pnpm run test:pages
 pnpm run package:pages
 ```
 
-`dist/` 是建置後的靜態網站，`artifacts/github-pages.zip` 是可部署壓縮包。將 ZIP **解壓後的全部內容**放到 GitHub repository 的專用部署分支根目錄，包含 `index.html`、`assets/`（含 `.wasm`）、`licenses/`、`icon.svg`、`.nojekyll`。GitHub Pages 不會自動解壓 ZIP。
+`dist/` 是建置後的靜態網站，專案內附的 `artifacts/github-pages.zip` 是可部署壓縮包，可直接下載使用。將 ZIP **解壓後的全部內容**放到 GitHub repository 的專用部署分支根目錄，包含 `index.html`、`assets/`（含 `.wasm`）、`licenses/`、`icon.svg`、`.nojekyll`。GitHub Pages 不會自動解壓 ZIP。
 
 若改用手動分支部署，在 repository 的 **Settings → Pages → Build and deployment** 選 **Deploy from a branch**，指定部署分支與 `/ (root)`。開發用的專案根目錄 `index.html` 引用 TypeScript，必須先建置，不能直接作為 Pages 成品。手動部署每次修改都須重新建置、驗證與打包；相對資源路徑支援根網域及 repository 子路徑。
 
@@ -82,6 +82,6 @@ pnpm run test:browser
 | `docs/` | 使用、部署與驗證紀錄 |
 | `.github/workflows/deploy.yml` | 推送到 `main`／`master` 時驗證、建置並自動部署 GitHub Pages |
 | `package.json`、`pnpm-lock.yaml`、設定檔 | 依賴、指令與建置／測試設定 |
-| `artifacts/github-pages.zip` | 保留的部署成品；原始碼修改後需重新產生 |
+| `artifacts/github-pages.zip` | 隨專案提交的部署成品；網站程式修改後需重新產生 |
 
 `node_modules/` 是可由 `pnpm install --frozen-lockfile` 重建的依賴；`dist/` 由 `pnpm run build` 重建。`artifacts/` 內的測試截圖、測試 Excel 和執行紀錄可清除，執行測試會重新產生；保留最新的部署 ZIP 即可。`.DS_Store` 與空的佔位檔不屬於程式必需檔案。
