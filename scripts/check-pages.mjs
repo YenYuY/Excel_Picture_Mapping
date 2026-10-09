@@ -5,6 +5,7 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 const root=resolve('dist');
+const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const server=createServer(async(req,res)=>{
   try {
     const url=new URL(req.url,'http://localhost');
@@ -34,8 +35,13 @@ try {
   await page.goto(target);
   assert.equal(await page.locator('script[src*="/src/"]').count(),0,'Unbuilt source index.html was deployed. Publish dist/ using GitHub Actions.');
   assert.ok(await page.locator('link[rel="stylesheet"]').count()>0,'Built CSS link is missing.');
-  await expect(page.locator('#preview')).toHaveCSS('background-color','rgb(23, 105, 75)');
-  await expect(page.locator('#controls')).toHaveCSS('display','grid');
+  await expect(page.locator('.topbar')).toHaveCSS('background-color','rgb(25, 84, 64)');
+  await expect(page.locator('.workbench-grid')).toHaveCSS('display','grid');
+  await expect(page.locator('.version[data-app-version]')).toHaveText(`v${version}`);
+  await expect(page.locator('#preview-empty')).toBeVisible();
+  const rail=await page.locator('.settings-rail').boundingBox();
+  const workspace=await page.locator('.workspace').boundingBox();
+  assert.ok(rail && workspace && workspace.x>=rail.x+rail.width-1 && Math.abs(rail.y-workspace.y)<1,'Desktop workbench must place settings beside the preview.');
   await page.screenshot({path:'artifacts/pages-desktop.png',fullPage:true});
   await page.locator('#sample').click();await page.locator('#preview').click();
   assert.equal(await page.locator('#ready-count').textContent(),'3 張可匯入');

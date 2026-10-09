@@ -21,9 +21,33 @@ let downloadUrl = '';
 function message(text: string, error = false): void {
   el('message').textContent = text; el('message').hidden = !text; el('message').classList.toggle('error', error);
 }
+function updateEmptyPreview(): void {
+  el('mode-description').textContent = mode === 'a'
+    ? 'A 欄序號 / B 欄照片 / C 欄預留'
+    : 'A 欄編號 / C 欄照片 / 另存新檔';
+  el('empty-title').textContent = files.length ? '等待預覽' : '匯入預覽';
+  el('empty-count').textContent = files.length ? `${files.length} 個檔案待預覽` : '尚未選取照片';
+  el('empty-guidance').hidden = files.length > 0;
+  el('empty-description').textContent = files.length
+    ? mode === 'b' && !source
+      ? '請先選擇既有 Excel 與工作表，再預覽照片的配對位置。'
+      : '按下「預覽順序與配對」，確認照片順序、匯入位置及略過原因。'
+    : mode === 'a'
+      ? '讀取本機資料夾或多選照片，再預覽順序。也可以先試用範例照片。'
+      : '選取以編號開頭的照片與既有 Excel，再依 A 欄編號配對。';
+  el('empty-column-a').textContent = mode === 'a' ? '序號' : '編號';
+  el('empty-cell-b').textContent = mode === 'a' ? '照片依序放入' : '保留原有照片';
+  el('empty-cell-c').textContent = mode === 'a' ? '留給之後補圖' : '依編號補入照片';
+  document.querySelector('.sheet-example')!.setAttribute('aria-label', mode === 'a'
+    ? '新 Excel 欄位示意：A 欄序號、B 欄照片、C 欄預留對照照片'
+    : '補圖欄位示意：A 欄編號、B 欄保留原有照片、C 欄依編號補入對照照片');
+}
 function invalidate(): void {
   revision++; plan = undefined;
   el('preview-panel').hidden = true; el('progress-panel').hidden = true;
+  el('preview-empty').hidden = false;
+  el<HTMLButtonElement>('preview').textContent = '預覽順序與配對 →';
+  updateEmptyPreview();
   el<HTMLButtonElement>('import').disabled = true;
   message('');
 }
@@ -32,6 +56,7 @@ function setBusy(value: boolean): void {
   el<HTMLFieldSetElement>('controls').disabled = value;
   el<HTMLButtonElement>('import').disabled = value || !plan || plan.errors.length > 0 || readyEntries(plan).length === 0;
   el<HTMLButtonElement>('preview').disabled = value || files.length === 0 || files.length > MAX_FILES || (mode === 'b' && !source);
+  updateEmptyPreview();
 }
 function errorText(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 const yieldUI = () => new Promise(resolve => setTimeout(resolve,0));
@@ -114,19 +139,21 @@ function renderPreview(): void {
       img.onerror = () => { img.hidden = true; }; wrapper.append(img);
       thumbnails.push({ file: entry.file, img });
     }
-    const text = document.createElement('span'); const filename = document.createElement('span'); filename.className = 'filename'; filename.textContent = entry.name;
+    const text = document.createElement('span'); text.className = 'photo-info'; const filename = document.createElement('span'); filename.className = 'filename'; filename.textContent = entry.name;
     const id = document.createElement('span'); id.className = 'photo-id';
     const label = mode === 'a' ? '序號' : '編號';
     id.textContent = entry.label ? `${label} ${entry.label}` : `無${label}`;
     text.append(filename, id); wrapper.append(text); name.append(wrapper);
-    const address = document.createElement('td'); address.textContent = entry.address ?? '—';
+    const address = document.createElement('td'); address.className = 'cell-address'; address.textContent = entry.address ?? '—';
     const status = document.createElement('td'); status.textContent = entry.reason ?? '可匯入'; status.className = entry.reason ? 'skip' : 'ready';
     tr.append(name, address, status); return tr;
   });
   el('preview-body').replaceChildren(...rows);
   el('preview-limit').textContent = plan.entries.length > 50 ? '縮圖僅顯示前 50 個檔案；配對清單包含全部選取檔案。' : '';
   el<HTMLButtonElement>('import').textContent = `產生並下載 Excel · ${ready} 張`;
+  el('preview-empty').hidden = true;
   el('preview-panel').hidden = false;
+  el<HTMLButtonElement>('preview').textContent = '更新預覽 →';
   void renderThumbnails(thumbnails, current);
 }
 
